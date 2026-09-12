@@ -8,12 +8,14 @@
 from __future__ import annotations
 
 import logging
+import io
 
 import requests
 
 import config
 
 log = logging.getLogger(__name__)
+_local_model = None
 
 
 class STTError(Exception):
@@ -45,12 +47,37 @@ def transcribe(bot, media) -> str:
             "или напишите текстом."
         ) from exc
 
+    if config.STT_PROVIDER == "local":
+        return _transcribe_local(audio_bytes)
     if config.STT_PROVIDER == "openai":
         return _transcribe_openai(audio_bytes)
 
     raise STTError(
         "Распознавание голоса настроено некорректно. Напишите, пожалуйста, текстом."
     )
+
+
+def _transcribe_local(audio_bytes: bytes) -> str:
+    """Распознаёт OGG/Opus локально через faster-whisper без API-ключа."""
+    global _local_model
+    try:
+        from faster_whisper import WhisperModel
+        if _local_model is None:
+            log.info("Загрузка локальной модели faster-whisper: %s", config.STT_LOCAL_MODEL)
+            _local_model = WhisperModel(config.STT_LOCAL_MODEL, device="cpu", compute_type="int8")
+        segments, _ = _local_model.transcribe(
+            io.BytesIO(audio_bytes), language=config.STT_LANGUAGE or None, vad_filter=True
+        )
+        text = " ".join(segment.text.strip() for segment in segments).strip()
+    except Exception as exc:
+        log.warning("Ошибка локального распознавания: %s", exc)
+        raise STTError(
+            "Не удалось распознать голосовое сообщение локально. "
+            "При первом запуске модель скачивается из интернета; попробуйте ещё раз или напишите текстом."
+        ) from exc
+    if not text:
+        raise STTError("Не удалось разобрать голосовое сообщение. Попробуйте записать его ещё раз.")
+    return text
 
 
 def _transcribe_openai(audio_bytes: bytes) -> str:

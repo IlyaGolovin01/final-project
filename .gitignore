@@ -19,3 +19,7 @@ venv/
 *.rar
 *.zip
 *.7z
+
+LVL3.lnk
+
+.gitignore

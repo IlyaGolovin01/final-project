@@ -218,6 +218,7 @@ FAQ_MAX_SUGGESTIONS: int = _get_int("FAQ_MAX_SUGGESTIONS", 3)
 # --------------------------------------------------------------------------- #
 # none   — голосовые не распознаются, бот вежливо просит написать текстом
 # openai — Whisper API (нужен OPENAI_API_KEY)
+# local — бесплатное локальное распознавание через faster-whisper (CPU)
 STT_PROVIDER: str = _get_str("STT_PROVIDER", "none").lower()
 OPENAI_API_KEY: str = _get_str("OPENAI_API_KEY")
 OPENAI_BASE_URL: str = _get_str("OPENAI_BASE_URL", "https://api.openai.com/v1").rstrip("/")
@@ -228,11 +229,14 @@ STT_LANGUAGE: str = os.environ.get("STT_LANGUAGE", "ru").strip()
 STT_TIMEOUT: int = _get_int("STT_TIMEOUT", 60)
 # Ограничение на длительность голосового, секунды (Telegram отдаёт duration).
 STT_MAX_DURATION: int = _get_int("STT_MAX_DURATION", 120)
+STT_LOCAL_MODEL: str = _get_str("STT_LOCAL_MODEL", "small")
 
 
 def stt_enabled() -> bool:
     if STT_PROVIDER == "openai":
         return bool(OPENAI_API_KEY)
+    if STT_PROVIDER == "local":
+        return True
     return False
 
 
@@ -280,9 +284,9 @@ def validate() -> list[str]:
             "STT_PROVIDER=openai, но OPENAI_API_KEY пуст — "
             "распознавание голосовых сообщений отключено."
         )
-    if STT_PROVIDER not in {"none", "openai"}:
+    if STT_PROVIDER not in {"none", "openai", "local"}:
         warnings.append(
-            f"Неизвестный STT_PROVIDER={STT_PROVIDER!r}; поддерживаются 'none' и 'openai'. "
+            f"Неизвестный STT_PROVIDER={STT_PROVIDER!r}; поддерживаются 'none', 'openai' и 'local'. "
             "Распознавание голосовых отключено."
         )
     if not (0 < FAQ_SUGGEST_THRESHOLD < FAQ_DIRECT_THRESHOLD <= 1):
